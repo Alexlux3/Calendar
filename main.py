@@ -3,7 +3,7 @@ from sheets_handler import SheetsHandler
 from schedule_handler import ScheduleHandler
 from config import SHEET_ID
 
-app = Flask(__name__)
+main = Flask(__name__)
 
 # Instancias de clases
 sheets = SheetsHandler(SHEET_ID)
