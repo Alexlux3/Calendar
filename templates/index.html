@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Calendario</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 10px;
+            text-align: center;
+        }
+        .libre {
+            background-color: #d4ffd6; /* Verde claro */
+        }
+        .lleno {
+            background-color: #ffd6d6; /* Rojo claro */
+        }
+    </style>
+</head>
+<body>
+    <h1>Calendario Prácticas</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Hora/Día</th>
+                {% for dia in schedule.dias %}
+                <th>{{ dia }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for i in range(1, len(datos)) %}
+            <tr>
+                <!-- Fila de horarios -->
+                <td>{{ datos[i][0] }}</td>
+                {% for j in range(1, len(schedule.dias) + 1) %}
+                {% set celda = datos[i][j] %}
+
+                <!-- Lista de textos prohibidos -->
+                {% set textos_prohibidos = [
+                    "INFRAESTRUCTURA DE TI - I ENRIQUEZ ROBERT SI (P4-1)",
+                    "LEGISLACIÓN INFORMÁTICA ENRIQUEZ ROBERT SI (P9-2)",
+                    "INFRAESTRUCTURA DE TI - II ENRIQUEZ ROBERT SI (P4-1)",
+                    "CRIPTOGRAFÍA Y SEGURIDAD DE LA INFORMACIÓN MONCAYO MILTON CC (P8-1)",
+                    "DISPOSITIVOS MÓVILES MONCAYO MILTON CC (P8-1)",
+                    "REDES Y PROTOCOLOS DE COMUNICACIÓN IBARRA DIEGO CC (P6-1)"
+                ] %}
+
+                <!-- Determinar clase de la celda -->
+                {% if celda in textos_prohibidos %}
+                    {% set clase = 'lleno' %}
+                {% elif celda.strip() and celda != "LIBRE" and celda != "LLENO" %}
+                    {% set eventos = celda.split('|') %}
+                    {% if eventos|length >= 4 %}
+                        {% set clase = 'lleno' %}
+                    {% else %}
+                        {% set clase = 'libre' %}
+                    {% endif %}
+                {% else %}
+                    {% set clase = 'libre' %}
+                {% endif %}
+
+                <td class="{{ clase }}">
+                    {% if celda in textos_prohibidos %}
+                        <!-- Mostrar contenido sin botones -->
+                        <div>{{ celda }}</div>
+
+                    {% elif celda != "LIBRE" and celda != "LLENO" and celda.strip() %}
+                        <!-- Dividir eventos ingresados en la celda -->
+                        {% set eventos = celda.split('|') %}
+
+                        <!-- Mostrar los eventos -->
+                        {% for evento in eventos %}
+                            <div>{{ evento }}</div>
+                        {% endfor %}
+
+                        <!-- Mostrar botón "Eliminar Evento" si hay al menos un evento -->
+                        {% if eventos|length > 0 %}
+                            <button onclick="mostrarEliminarMenu('{{ schedule.dias[j-1] }}', '{{ datos[i][0] }}', '{{ celda }}')">Eliminar práctica</button>
+                        {% endif %}
+
+                        <!-- Mostrar botón "Agregar Evento" si hay menos de 4 eventos -->
+                        {% if eventos|length < 4 %}
+                            <button onclick="mostrarMenu('{{ schedule.dias[j-1] }}', '{{ datos[i][0] }}')">Registrar práctica</button>
+                        {% endif %}
+
+                    {% else %}
+                        <!-- Celda libre: mostrar solo el botón "Agregar Evento" -->
+                        <button onclick="mostrarMenu('{{ schedule.dias[j-1] }}', '{{ datos[i][0] }}')">Registrar práctica</button>
+                    {% endif %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Menú modal para agregar eventos -->
+    <div id="menuModal" style="display:none; position:fixed; top:20%; left:40%; background-color:white; padding:20px; border:1px solid black;">
+        <h3>Agregar Evento</h3>
+        <form method="POST" action="/agregar_evento">
+            <input type="hidden" name="dia" id="diaInput">
+            <input type="hidden" name="hora" id="horaInput">
+            <label for="grupo">Número de Grupo:</label>
+            <input type="text" name="grupo" id="grupoInput" required><br>
+            <label for="responsable">Responsable:</label>
+            <input type="text" name="responsable" id="responsableInput" required><br>
+            <button type="submit">Guardar</button>
+            <button type="button" onclick="cerrarMenu()">Cancelar</button>
+        </form>
+    </div>
+
+    <!-- Menú modal para eliminar eventos -->
+    <div id="eliminarModal" style="display:none; position:fixed; top:20%; left:40%; background-color:white; padding:20px; border:1px solid black;">
+        <h3>Eliminar Evento</h3>
+        <form method="POST" action="/eliminar_evento">
+            <input type="hidden" name="dia" id="diaEliminarInput">
+            <input type="hidden" name="hora" id="horaEliminarInput">
+
+            <!-- Lista de eventos a eliminar -->
+            <div id="listaEventos"></div>
+
+            <button type="submit">Eliminar</button>
+            <button type="button" onclick="cerrarEliminarMenu()">Cancelar</button>
+        </form>
+    </div>
+
+    <script>
+        // Mostrar el menú para agregar eventos
+        function mostrarMenu(dia, hora) {
+            document.getElementById('diaInput').value = dia;
+            document.getElementById('horaInput').value = hora;
+            document.getElementById('menuModal').style.display = 'block';
+        }
+
+        function cerrarMenu() {
+            document.getElementById('menuModal').style.display = 'none';
+        }
+
+        // Mostrar el menú para eliminar eventos
+        function mostrarEliminarMenu(dia, hora, eventos) {
+            document.getElementById('diaEliminarInput').value = dia;
+            document.getElementById('horaEliminarInput').value = hora;
+
+            // Convertir los eventos en una lista seleccionable
+            const eventosArray = eventos.split('|');
+            const listaEventosDiv = document.getElementById('listaEventos');
+            listaEventosDiv.innerHTML = ''; // Limpiar el contenido previo
+
+            eventosArray.forEach((evento, index) => {
+                const label = document.createElement('label');
+                const input = document.createElement('input');
+                input.type = 'radio';
+                input.name = 'evento';
+                input.value = evento.trim();
+                input.required = true; // Asegurarse de que se seleccione un evento
+                label.appendChild(input);
+                label.appendChild(document.createTextNode(evento));
+                listaEventosDiv.appendChild(label);
+                listaEventosDiv.appendChild(document.createElement('br')); // Salto de línea
+            });
+
+            document.getElementById('eliminarModal').style.display = 'block';
+        }
+
+        function cerrarEliminarMenu() {
+            document.getElementById('eliminarModal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
+
+
+
+
+
+
